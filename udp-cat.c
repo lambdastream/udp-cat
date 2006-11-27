@@ -142,9 +142,9 @@ static void parseAddress(char *addressLine, InputParams *inputParams) {
 
 static void printUsage(const char *name) {
   fprintf(stderr, "\nUsage: %s <addr> [options]\n\n"
-	  "<addr> may be either ip:port (multicast) or port (for unicast)\n\n"
+	  "<addr> may be either ip:port (multicast) or port (unicast)\n\n"
 	  "Options:\n"
-	  "\t-timeout=N\tListens N seconds and exit printing the amount of data read.\n"
+	  "\t-timeout=N\tListens N seconds and exits printing the amount of data read.\n"
 	  "\n", name);
 }
 
