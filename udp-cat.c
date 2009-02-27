@@ -27,11 +27,16 @@
 #include <time.h>
 #include <errno.h>
 #include <poll.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 #define BUFFER_LENGTH 1500
 
 typedef struct _InputParams {
   char *address;
+  int outputFile;
+  int hasOutput;
   int port;
   short hasTimeout;
   int timeout;
@@ -41,7 +46,7 @@ static void printUsage(const char *name);
 static InputParams parseCommand(int argc, char **argv);
 static void parseAddress(char *addressLine, InputParams *inputParams);
 static int openSocket(InputParams inputParams);
-static void writeBytes(const char *buffer, int bytes);
+static void writeBytes(const char *buffer, int bytes, int output);
 
 int main(int argc, char **argv) {
 
@@ -49,7 +54,7 @@ int main(int argc, char **argv) {
   struct pollfd pollfd;
   int udpSocket;
   char buffer[BUFFER_LENGTH];
-  int bytes, byteCount, timeout;
+  int bytes, byteCount, timeout, output;
   time_t currentSecond, startSecond;
 
   /* Parse command line */
@@ -70,6 +75,8 @@ int main(int argc, char **argv) {
   pollfd.events = POLLIN | POLLPRI;
   timeout = (inputParams.hasTimeout) ? inputParams.timeout * 1000 : -1;
 
+  output = (inputParams.hasOutput) ? inputParams.outputFile : 1;
+
   do {
 
     if (poll(&pollfd, 1, timeout) < 0) {
@@ -84,7 +91,7 @@ int main(int argc, char **argv) {
 	perror("recv");
 	exit(EXIT_FAILURE);
       }
-      writeBytes(buffer, bytes);
+      writeBytes(buffer, bytes, output);
       byteCount += bytes;
     }
 
@@ -122,6 +129,14 @@ static InputParams parseCommand(int argc, char **argv) {
     if (!strncmp(argv[i], "-timeout=", 9)) {
       inputParams.hasTimeout = 1;
       inputParams.timeout = atoi(argv[i] + 9);
+    } else if (!strncmp(argv[i], "-outputFile=", 12)) {
+      inputParams.outputFile = open(argv[i]+12, O_APPEND|O_WRONLY);
+      if (inputParams.outputFile < 0) {
+	fprintf(stderr, "Invalid file %s\n", argv[i]+12);
+	exit(EXIT_FAILURE);
+      } else {
+	inputParams.hasOutput = 1;
+      }
     } else {
       printUsage(argv[0]);
       exit(EXIT_FAILURE);
@@ -161,7 +176,8 @@ static void printUsage(const char *name) {
   fprintf(stderr, "\nUsage: %s <addr> [options]\n\n"
 	  "<addr> may be either ip:port (multicast) or port (unicast)\n\n"
 	  "Options:\n"
-	  "\t-timeout=N\tListens N seconds and exits printing the amount of data read.\n"
+	  "\t-timeout=N\t\tListens N seconds and exits printing the amount of data read.\n"
+	  "\t-outputFile=File\tWrite the results to File instead of stdout.\n"
 	  "\n", name);
 }
 
@@ -217,12 +233,12 @@ static int openSocket(InputParams inputParams) {
   return udpSocket;
 }
 
-static void writeBytes(const char *buffer, int bytes) {
+static void writeBytes(const char *buffer, int bytes, int output) {
 
   int written;
 
   while (bytes > 0) {
-    if ((written = write(1, buffer, bytes)) < 0) {
+    if ((written = write(output, buffer, bytes)) < 0) {
       perror("write");
       exit(EXIT_FAILURE);
     }
