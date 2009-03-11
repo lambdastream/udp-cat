@@ -35,8 +35,10 @@
 
 typedef struct _InputParams {
   char *address;
+  char *lAddress;
   int outputFile;
   int hasOutput;
+  int hasLAddress;
   int port;
   short hasTimeout;
   int timeout;
@@ -129,6 +131,9 @@ static InputParams parseCommand(int argc, char **argv) {
     if (!strncmp(argv[i], "-timeout=", 9)) {
       inputParams.hasTimeout = 1;
       inputParams.timeout = atoi(argv[i] + 9);
+    } else if(!strncmp(argv[i], "-lAddress=", 10)) {
+      inputParams.lAddress = argv[i]+10;
+      inputParams.hasLAddress = 1;
     } else if (!strncmp(argv[i], "-outputFile=", 12)) {
       inputParams.outputFile = open(argv[i]+12, O_APPEND|O_WRONLY);
       if (inputParams.outputFile < 0) {
@@ -178,6 +183,7 @@ static void printUsage(const char *name) {
 	  "Options:\n"
 	  "\t-timeout=N\t\tListens N seconds and exits printing the amount of data read.\n"
 	  "\t-outputFile=File\tWrite the results to File instead of stdout.\n"
+	  "\t-lAddress=Address\tSpecifies the address to be used to listen to <addr>.\n"
 	  "\n", name);
 }
 
@@ -206,7 +212,11 @@ static int openSocket(InputParams inputParams) {
   /* Bind it */
   sockAddrIn.sin_family = AF_INET;
   sockAddrIn.sin_port = htons(inputParams.port);
-  sockAddrIn.sin_addr.s_addr = INADDR_ANY;
+  if (inputParams.hasLAddress && (inputParams.address==NULL)) { 
+    sockAddrIn.sin_addr.s_addr = inet_addr(inputParams.lAddress); 
+  } else { 
+    sockAddrIn.sin_addr.s_addr = INADDR_ANY;
+  } 
 
   if (bind(udpSocket, (struct sockaddr *) &sockAddrIn, sizeof(sockAddrIn))
       == -1) {
@@ -221,7 +231,11 @@ static int openSocket(InputParams inputParams) {
     h = gethostbyname(inputParams.address);
     memcpy(&mcastAddr, (h -> h_addr_list)[0], h -> h_length);
     mreqn.imr_multiaddr.s_addr = mcastAddr.s_addr;
-    mreqn.imr_address.s_addr = INADDR_ANY;
+    if (inputParams.hasLAddress) {
+      mreqn.imr_address.s_addr = inet_addr(inputParams.lAddress);
+    } else {
+      mreqn.imr_address.s_addr = INADDR_ANY;
+    } 
     mreqn.imr_ifindex = 0;
 
     if (setsockopt(udpSocket, SOL_IP, IP_ADD_MEMBERSHIP, &mreqn,
