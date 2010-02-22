@@ -212,12 +212,14 @@ static int openSocket(InputParams inputParams) {
   /* Bind it */
   sockAddrIn.sin_family = AF_INET;
   sockAddrIn.sin_port = htons(inputParams.port);
-  if (inputParams.hasLAddress && (inputParams.address==NULL)) { 
+  if (inputParams.hasLAddress && (inputParams.address==NULL)) {
     sockAddrIn.sin_addr.s_addr = inet_addr(inputParams.lAddress); 
-  } else { 
+  } else if (inputParams.address!=NULL) { 
+    sockAddrIn.sin_addr.s_addr = inet_addr(inputParams.address); 
+  } else {
     sockAddrIn.sin_addr.s_addr = INADDR_ANY;
-  } 
-
+  }
+  
   if (bind(udpSocket, (struct sockaddr *) &sockAddrIn, sizeof(sockAddrIn))
       == -1) {
     perror("bind");
